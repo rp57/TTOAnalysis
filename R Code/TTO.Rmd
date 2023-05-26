@@ -1,0 +1,322 @@
+---
+title: "TTO"
+author: "Rohan Patel"
+date: "2023-03-01"
+output: html_document
+---
+
+A Statistical Analysis on Three-True Outcome Baseball (Plate Appearances ending in a walk, strikeout, or home run), as well as its merits and sustainability. 
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(ggpubr)
+```
+
+Looking at how TTO% (percent of PA that end in a TTO) has grown historically (Data from Fangraphs)
+```{r}
+historical <- read_csv("TTOHistorical.csv")
+
+
+colnames(historical)[2]="TTO"
+
+df<-data.frame(historical)
+df$new_TTO<-gsub("%","",df$TTO)
+historicalnew <- df
+
+historicalnew$new_TTO <- as.numeric(historicalnew$new_TTO)/100
+
+historicalnew
+
+
+historical1 <- filter(historical,Season >= 1980)
+
+
+ggplot(historicalnew, aes(x=Season,y=new_TTO))+
+  geom_line()+
+  labs(x="Season",y="Three True Outcome Percentage",title="League-wide Three True Outcome Percentage in MLB from 1930-2022")
+```
+
+2022 TTO Data (from Fangraphs):
+- Filter for hitters with a TTO% greater than 40 in 2023 (large number)
+```{r}
+TTO2022 <- read_csv("TTO2022.csv")
+
+colnames(TTO2022)[2]="Team"
+colnames(TTO2022)[3]="TTO"
+
+
+TTO1 <- filter(TTO2022,TTO >= 40,)
+arrange(TTO1, desc(TTO))
+
+```
+
+Graphing TTO% vs wRC+ (Is relying on TTO-baseball good for offensive production?)
+```{r}
+colnames(TTO2022)[4] = "wRCplus"
+
+
+df<-data.frame(TTO2022)
+df$new_TTO<-gsub("%","",df$TTO)
+TTO2022new <- df
+
+TTO2022new$new_TTO <- as.numeric(TTO2022new$new_TTO)/100
+
+TTO2022new
+
+
+
+plot <- ggscatter(TTO2022new,x="new_TTO",y="wRCplus",add="reg.line",title="2022 wRC+ vs 2022 TTO% (Qualified)",xlab = "TTO%",ylab = "wRC+")
+
+plot + stat_cor(method="pearson") 
+  
+  
+```
+
+
+TTO% isn't correlated with offensive success, so the next step is to try and answer why. The answer may be that reliance on TTO baseball is less sustainable because HR/FB rates fluctuate due top extraneous factors. 
+
+Below we are creating a two-year data set (from Fangraphs) which allows us to compare wRC+ in 2021 and 2022 for hitters (to set a baseline for sustainability). We limited the analysis to hitters with at least 300 PAs in each year, so some names had to be removed. 
+
+```{r}
+TTO3 <- read.csv("2yearwRCTTO.csv")
+
+df<-data.frame(TTO3)
+df$new_TTO<-gsub("%","",df$TTO)
+TTO4 <- df
+
+
+TTO4$new_TTO <- as.numeric(TTO4$new_TTO)/100
+
+TTO2021 <- filter(TTO4, Season==2021, new_TTO >= .40)
+
+TTO2021
+
+vec_names <- TTO2021$Name
+
+vec_names_exclude <- c("Brandon Lowe","Chris Taylor","Bryce Harper","Adam Duvall","Fernando Tatis Jr.","Giancarlo Stanton","Joey Gallo","Miguel Sano","Joey Votto","Robbie Grossman","Ryan Mountcastle","Tyler O'Neill","Yoan Moncada")
+
+vec_names1 <- setdiff(vec_names,vec_names_exclude)
+
+vec_names1
+
+TTO5 <- filter(TTO4, Name %in% vec_names1) 
+TTO6 <- arrange(TTO5,Name)
+
+TTO6
+
+colnames(TTO6)[5] = "TTO"
+
+TTO6
+write_csv(TTO6,"TT06.csv")
+```
+
+```{r}
+TTO6_sorted <- read_csv("TTO6sorted.csv")
+
+
+colnames(TTO6_sorted)[5] = "wRCplus2"
+colnames(TTO6_sorted)[3] = "wRCplus1"
+
+TTO6_sorted
+
+```
+
+The next couple chunks help to create smaller datasets (one for >40% TTO), as well as graph the baseline correlation for wRC+
+
+```{r}
+TTO7 <- read_csv("TTOexpanded.csv")
+
+colnames(TTO7)[5]="TTO"
+colnames(TTO7)[4]="wRCplus"
+
+df<-data.frame(TTO7)
+df$new_TTO<-gsub("%","",df$TTO)
+TTO7 <- df
+
+TTO7$new_TTO <- as.numeric(TTO7$new_TTO)*100
+
+
+
+TTO8 <- filter(TTO7, Season=="2021",new_TTO >= .40)
+
+vec_names1 <- TTO8$Name
+
+vec_names1
+
+TTO9 <- filter(TTO7, Name %in% vec_names1)
+
+TTO10 <- arrange(TTO9,Name)
+
+n_occur <- data.frame(table(TTO10$Name))
+
+n_occur1 <- n_occur[n_occur$Freq > 1,]
+
+
+vec_names2 <- c(n_occur1$Var1)
+
+
+TTO11 <- filter(TTO10,Name %in% vec_names2)
+
+TTO11
+
+write_csv(TTO11,"TTO11.csv")
+```
+
+```{r}
+TTO7
+
+n_occur2 <- data.frame(table(TTO7$Name))
+
+n_occur3 <- n_occur2[n_occur2$Freq > 1,]
+
+vec_names3 <- n_occur3$Var1
+
+TTO13 <- filter(TTO7,Name %in% vec_names3)
+
+write_csv(TTO13,"TTO13.csv")
+
+```
+
+Graph of baseline wRC+ correlation from 2021-2022 (so we can compare the results for the various TTO% groups)
+
+```{r}
+TTO14 <- read_csv("TTO13sorted.csv")
+
+plot <- ggscatter(TTO14,x="wRCplus2021",y="wRCplus2022",add="reg.line",title="2022 wRC+ vs 2021 wRC+ (min 300 PA))",xlab = "2021 wRC+",ylab="2022 wRC+")
+
+plot + stat_cor(method="pearson") 
+
+```
+
+Graph and correlation for the group with a high TTO% (>40%):
+
+```{r}
+
+
+TTO12 <- read_csv("TTO11sorted.csv")
+
+ggplot(TTO12,aes(x=wRC2021,y=wRC2022))+
+  geom_point()
+
+cor.test(TTO12$wRC2022,TTO12$wRC2021,method="pearson")
+
+
+plot <- ggscatter(TTO12,x="wRC2021",y="wRC2022",add="reg.line",title="2022 wRC+ vs 2021 wRC+ for Hitters with TTO% above 40 (min 300 PA)",xlab = "2021 wRC+",ylab="2022 wRC+") 
+
+plot + stat_cor(method="pearson") 
+
+
+```
+
+Clearly, the correlation for this group is much smaller than the baseline, which suggests that wRC+ is significantly less sticky for the group of hitters with a hogh TTO%. The explanation may lie in the year-to-year fluctuations in HR/FB rates. 
+
+```{r}
+HRFB <- read_csv("HR.csv")
+
+colnames(HRFB)[22] = "HRFB"
+
+df<-data.frame(HRFB)
+df$HRFB<-gsub("%","",df$HRFB)
+HRFB <- df
+
+
+
+ggplot(HRFB,aes(x=Season,y=HRFB,"HR/FB Rate by Year (2002-2022)"))+
+  geom_line()+
+  xlab("Year")+
+  ylab("HR/FB Rate")
+```
+
+
+Creating a smaller dataset and graph for the group with a low TTo% (<30%)
+```{r}
+TTO15 <- read_csv("TTO132.csv")
+
+df<-data.frame(TTO15)
+df$new_TTO2022<-gsub("%","",df$TTO2022)
+TTO15 <- df
+
+df<-data.frame(TTO15)
+df$new_TTO2021<-gsub("%","",df$TTO2021)
+TTO15 <- df
+
+df<-data.frame(TTO15)
+df$new_TTOdiff<-gsub("%","",df$TTOdiff)
+TTO15 <- df
+
+
+
+TTO15
+
+TTO16 <- filter(TTO15,new_TTO2021 <= 30)
+
+TTO16
+
+plot <- ggscatter(TTO16,x="wRCplus2021",y="wRCplus2022",add="reg.line",title="2022 wRC+ vs 2021 wRC+ for Hitters with TTO% below 30 (min 300 PA)",xlab = "2021 wRC+",ylab="2022 wRC+")
+
+plot + stat_cor(method="pearson") 
+
+```
+
+wRC+ is also significantly less sticky than the baseline for the group with a low TTO%. Generally, hitters with a low TTO% rely more on balls in play which are suceptible to significant variance due toq extraneous factors. While league-wide BABIP rarely changes, individual hitters' BABIPs often fluctuate affecting wRC+
+
+
+Smaller Dataset for the group with the "middle" TTO% (30-40%).
+
+```{r}
+TTO17 <- filter(TTO15, 30 <= new_TTO2021 & new_TTO2021 <= 40 )
+
+TTO17
+
+plot <- ggscatter(TTO17,x="wRCplus2021",y="wRCplus2022",add="reg.line",title="2022 wRC+ vs 2021 wRC+ for Hitters with 30-40 TTO% (min 300 PA)",xlab = "2021 wRC+",ylab="2022 wRC+")
+
+plot + stat_cor(method="pearson") 
+```
+
+Unlike the other two groups, the correlation is significantly stronger than the baseline. This suggests that offensive production is more sustainable when TTO% is between these range. Hitters in this range rely on both TTO and Balls in Play and creates a sustainable balance. 
+
+
+Below are some player examples that I touched on in my article on Medium: 
+
+https://medium.com/@xRPx7/feast-or-famine-analyzing-the-sustainability-of-three-true-outcome-baseball-f2f86df903b2
+
+
+```{r}
+Yuli <- read_csv("Yuli.csv")
+
+colnames(Yuli)[5] = "wRCplus"
+
+ggplot(Yuli, aes(x=Season,y=BABIP))+
+  geom_line()
+ggplot(Yuli, aes(x=Season,y=wRCplus))+
+  geom_line()
+
+arrange(Yuli,Season)
+```
+
+```{r}
+Gallo <- read_csv("Gallo.csv")
+
+colnames(Gallo)[4] = "wRCplus"
+colnames(Gallo)[5] = "TTO"
+
+Gallo1<- filter(Gallo, Season >= 2017)
+
+as.numeric(Gallo1$TTO)
+
+is.numeric(Gallo1$TTO)
+
+
+
+
+ggplot(Gallo1, aes(x=Season,y=TTO))+
+  geom_line()
+ggplot(Gallo1, aes(x=Season,y=wRCplus))+
+  geom_bar(stat="identity") 
+
+arrange(Gallo1,Season)
+
+```
+
+To conclude, these findings help us find which offensive approach is more sustainable, not necessarily what approach is more sucessful. Ultimately, the offensive approach a hitter takes depends on their profile. For example, Yankees Superstar Aaron Judge routinely runs high TTO%, but consistently has great offensive output. Judge hits a lot of extremely long home runs, which makes him less suceptible to HR/FB variance. 
